@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary-blue: #3B82F6;
+    --primary-purple: #8B5CF6;
+    --primary-pink: #EC4899;
+    --success-green: #10B981;
+    --warning-yellow: #F59E0B;
+    --error-red: #EF4444;
+    --match-red: #FD5068;
+    --compatibility-gold: #FBBF24;
+    --opportunity-orange: #FB923C;
+  }
+  
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    border: 1px solid #D1D5DB; /* border-gray-300 */
+    color: #374151; /* text-gray-700 */
+    padding: 0.5rem 1rem; /* px-4 py-2 */
+    border-radius: 0.5rem; /* rounded-lg */
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover {
+    background-color: #F9FAFB; /* bg-gray-50 */
+  }
+  
+  .btn-success {
+    @apply bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-all duration-200;
+  }
+  
+  .btn-danger {
+    @apply bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-all duration-200;
+  }
+}
