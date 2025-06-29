@@ -157,18 +157,36 @@ npm run type-check   # Verificación de tipos TypeScript
 
 ## 🚀 Deployment
 
-### Vercel (Recomendado)
+### Railway (Plataforma Principal)
+
+Este proyecto está desplegado en Railway con CI/CD automático:
 
 ```bash
-npm run build
-# Subir la carpeta dist/ a Vercel
+# El deployment se realiza automáticamente al hacer push a master
+git push origin master
 ```
+
+**Variables de entorno en Railway:**
+
+- `VITE_API_BASE_URL` - URL del MCP API Server
+- `VITE_WS_URL` - URL del WebSocket server
+- `VITE_DEBUG_MODE` - Modo debug (false en producción)
 
 ### Build Local
 
 ```bash
 npm run build
 # Los archivos estarán en dist/
+```
+
+### Docker
+
+```bash
+# Build de la imagen
+docker build -t dating-ai-dashboard .
+
+# Ejecutar el contenedor
+docker run -p 80:80 dating-ai-dashboard
 ```
 
 ## 🤝 Contribuir
@@ -191,7 +209,7 @@ Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) par
 
 ### 🎉 Demo en Vivo
 
-Próximamente disponible en: [https://dating-ai-dashboard.vercel.app](https://dating-ai-dashboard.vercel.app)
+🚀 **Aplicación desplegada en Railway:** [https://dating-ai-dashboard-production.up.railway.app](https://dating-ai-dashboard-production.up.railway.app)
 
 ---
 
