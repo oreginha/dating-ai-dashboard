@@ -15,7 +15,7 @@
     "deploy": "npm run build && npm run preview"
   },
   "dependencies": {
-    "@headlessui/react": "^1.7.17",
+    "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.0.18",
     "@tanstack/react-query": "^4.35.3",
     "@types/react-router-dom": "^5.3.3",
