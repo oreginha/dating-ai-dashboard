@@ -3,7 +3,7 @@ import { useAppStore } from '../store';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// Types
+// Types - FIXED: Match backend interface
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -13,7 +13,7 @@ export interface ApiResponse<T = any> {
 
 export interface ProfileAnalysisRequest {
   instagram_url: string;
-  enhanced_analysis?: boolean;
+  enhanced_analysis?: boolean;  // FIXED: Use enhanced_analysis instead of detailed_analysis
 }
 
 export interface ProfileAnalysisResponse {
@@ -197,27 +197,28 @@ class ApiService {
   }
 
   // Legacy methods - keeping for compatibility but not used
+  // FIXED: Add _ prefix to suppress unused parameter warnings
   async getConversations(): Promise<any[]> {
     console.warn('getConversations not implemented in MCP backend');
     return [];
   }
 
-  async getConversationHistory(conversationId: string): Promise<any[]> {
+  async getConversationHistory(_conversationId: string): Promise<any[]> {
     console.warn('getConversationHistory not implemented in MCP backend');
     return [];
   }
 
-  async generateMessage(request: MessageGenerationRequest): Promise<MessageGenerationResponse> {
+  async generateMessage(_request: MessageGenerationRequest): Promise<MessageGenerationResponse> {
     console.warn('generateMessage not implemented in MCP backend');
     throw new Error('Not implemented');
   }
 
-  async sendMessage(conversationId: string, content: string): Promise<void> {
+  async sendMessage(_conversationId: string, _content: string): Promise<void> {
     console.warn('sendMessage not implemented in MCP backend');
     throw new Error('Not implemented');
   }
 
-  async detectOpportunities(request: OpportunityDetectionRequest): Promise<OpportunityDetectionResponse> {
+  async detectOpportunities(_request: OpportunityDetectionRequest): Promise<OpportunityDetectionResponse> {
     console.warn('detectOpportunities not implemented in MCP backend');
     throw new Error('Not implemented');
   }
@@ -227,12 +228,12 @@ class ApiService {
     return this.getAnalytics();
   }
 
-  async updateWorkflowConfig(workflow: string, config: any): Promise<void> {
+  async updateWorkflowConfig(_workflow: string, _config: any): Promise<void> {
     console.warn('updateWorkflowConfig not implemented in MCP backend');
     throw new Error('Not implemented');
   }
 
-  async getWorkflowConfig(workflow: string): Promise<any> {
+  async getWorkflowConfig(_workflow: string): Promise<any> {
     console.warn('getWorkflowConfig not implemented in MCP backend');
     return {};
   }
