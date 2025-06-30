@@ -56,9 +56,11 @@ NODE_ENV=production
 Para que el CI/CD funcione, configura estos secrets en GitHub:
 
 ```
-RAILWAY_TOKEN=tu_railway_token_aqui
+RAILWAY_TOKEN=F4cu246
 RAILWAY_SERVICE_ID=86f2b665-810d-4509-85a6-b3df93585c19
 ```
+
+⚠️ **IMPORTANTE**: Ve a tu repositorio en GitHub → Settings → Secrets and variables → Actions → New repository secret
 
 ### 🚀 **Próximos Pasos**
 
@@ -70,5 +72,7 @@ RAILWAY_SERVICE_ID=86f2b665-810d-4509-85a6-b3df93585c19
 
 ---
 
-**Última actualización**: ${new Date().toLocaleDateString('es-ES')}
+**Última actualización**: 29/6/2025
 **Estado**: ✅ DEPLOYED & RUNNING
+**Railway Token**: Configurado
+**GitHub Actions**: Listo para uso automático
