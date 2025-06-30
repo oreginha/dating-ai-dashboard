@@ -12,9 +12,9 @@ RUN npm ci
 # Copiar código fuente
 COPY . .
 
-# AGREGAR VARIABLES DE ENTORNO PARA EL BUILD
+# AGREGAR VARIABLES DE ENTORNO PARA EL BUILD (URLs CORREGIDAS)
 ARG VITE_API_BASE_URL=https://mcp-api-server-production.up.railway.app
-ARG VITE_WS_URL=wss://n8n-workflows-production.up.railway.app
+ARG VITE_WS_URL=wss://n8n-workflows-production-4827.up.railway.app
 ARG VITE_DEBUG_MODE=false
 ARG VITE_ENVIRONMENT=production
 ARG VITE_APP_NAME="Dating AI Dashboard"
