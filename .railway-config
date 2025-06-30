@@ -1,0 +1,6 @@
+# Railway Configuration
+PROJECT_ID=d81cd4df-72cc-472a-8a5f-d743b9976ec5
+SERVICE_ID=86f2b665-810d-4509-85a6-b3df93585c19
+ENVIRONMENT_ID=13fb2741-a902-4893-b161-aa692128b0af
+PROJECT_NAME=dating-ai-mcp-server
+SERVICE_NAME=dating-ai-dashboard
