@@ -21,6 +21,9 @@ FROM nginx:alpine
 # Copiar archivos build
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Copiar configuración nginx customizada
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # Copiar script de entrypoint
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
