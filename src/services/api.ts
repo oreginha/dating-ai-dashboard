@@ -13,7 +13,7 @@ export interface ApiResponse<T = any> {
 
 export interface ProfileAnalysisRequest {
   instagram_url: string;
-  detailed_analysis?: boolean;
+  enhanced_analysis?: boolean;
 }
 
 export interface ProfileAnalysisResponse {
@@ -124,171 +124,123 @@ class ApiService {
     );
   }
 
-  // Profile Analysis
+  // Profile Analysis - FIXED: Use /mcp/ endpoints
   async analyzeProfile(request: ProfileAnalysisRequest): Promise<ProfileAnalysisResponse> {
     try {
-      const response = await this.api.post<ApiResponse<ProfileAnalysisResponse>>(
-        '/api/profiles/analyze',
+      const response = await this.api.post<any>(
+        '/mcp/profile/analyze',
         request
       );
       
-      if (!response.data.success || !response.data.data) {
+      // The backend returns direct data, not wrapped in ApiResponse
+      if (!response.data.success) {
         throw new Error(response.data.error || 'Profile analysis failed');
       }
       
-      return response.data.data;
+      return response.data;
     } catch (error) {
       console.error('Profile analysis error:', error);
       throw error;
     }
   }
 
-  // Conversation Management
-  async getConversations(): Promise<any[]> {
+  // Get Profiles - FIXED: Use /mcp/ endpoint
+  async getProfiles(): Promise<any[]> {
     try {
-      const response = await this.api.get<ApiResponse<any[]>>('/api/conversations');
-      return response.data.data || [];
+      const response = await this.api.get<any>('/mcp/profiles');
+      return response.data.profiles || [];
     } catch (error) {
-      console.error('Get conversations error:', error);
+      console.error('Get profiles error:', error);
       return [];
     }
   }
 
-  async getConversationHistory(conversationId: string): Promise<any[]> {
+  // Get Analytics - FIXED: Use /mcp/ endpoint
+  async getAnalytics(): Promise<any> {
     try {
-      const response = await this.api.get<ApiResponse<any[]>>(
-        `/api/conversations/${conversationId}/messages`
-      );
-      return response.data.data || [];
-    } catch (error) {
-      console.error('Get conversation history error:', error);
-      return [];
-    }
-  }
-
-  // Message Generation
-  async generateMessage(request: MessageGenerationRequest): Promise<MessageGenerationResponse> {
-    try {
-      const response = await this.api.post<ApiResponse<MessageGenerationResponse>>(
-        '/api/messages/generate',
-        request
-      );
-      
-      if (!response.data.success || !response.data.data) {
-        throw new Error(response.data.error || 'Message generation failed');
-      }
-      
-      return response.data.data;
-    } catch (error) {
-      console.error('Message generation error:', error);
-      throw error;
-    }
-  }
-
-  async sendMessage(conversationId: string, content: string): Promise<void> {
-    try {
-      const response = await this.api.post<ApiResponse>(
-        '/api/messages/send',
-        { conversation_id: conversationId, content }
-      );
-      
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Message send failed');
-      }
-    } catch (error) {
-      console.error('Send message error:', error);
-      throw error;
-    }
-  }
-
-  // Opportunity Detection
-  async detectOpportunities(request: OpportunityDetectionRequest): Promise<OpportunityDetectionResponse> {
-    try {
-      const response = await this.api.post<ApiResponse<OpportunityDetectionResponse>>(
-        '/api/opportunities/detect',
-        request
-      );
-      
-      if (!response.data.success || !response.data.data) {
-        throw new Error(response.data.error || 'Opportunity detection failed');
-      }
-      
-      return response.data.data;
-    } catch (error) {
-      console.error('Opportunity detection error:', error);
-      throw error;
-    }
-  }
-
-  // Analytics
-  async getAnalytics(timeframe: string): Promise<any> {
-    try {
-      const response = await this.api.get<ApiResponse<any>>(
-        `/api/analytics?timeframe=${timeframe}`
-      );
-      return response.data.data || {};
+      const response = await this.api.get<any>('/mcp/analytics');
+      return response.data || {};
     } catch (error) {
       console.error('Get analytics error:', error);
       return {};
     }
   }
 
-  async getMetrics(): Promise<any> {
+  // Strategy Generation - FIXED: Use /mcp/ endpoint
+  async generateStrategy(profileId: number, objective: string = 'romantic_connection'): Promise<any> {
     try {
-      const response = await this.api.get<ApiResponse<any>>('/api/metrics');
-      return response.data.data || {};
-    } catch (error) {
-      console.error('Get metrics error:', error);
-      return {};
-    }
-  }
-
-  // Configuration
-  async updateWorkflowConfig(workflow: string, config: any): Promise<void> {
-    try {
-      const response = await this.api.put<ApiResponse>(
-        `/api/config/${workflow}`,
-        config
-      );
+      const response = await this.api.post<any>('/mcp/strategy/generate', {
+        profile_id: profileId,
+        objective,
+        enhanced_strategy: true
+      });
       
       if (!response.data.success) {
-        throw new Error(response.data.error || 'Config update failed');
+        throw new Error(response.data.error || 'Strategy generation failed');
       }
+      
+      return response.data;
     } catch (error) {
-      console.error('Update config error:', error);
+      console.error('Strategy generation error:', error);
       throw error;
     }
   }
 
-  async getWorkflowConfig(workflow: string): Promise<any> {
-    try {
-      const response = await this.api.get<ApiResponse<any>>(`/api/config/${workflow}`);
-      return response.data.data || {};
-    } catch (error) {
-      console.error('Get config error:', error);
-      return {};
-    }
-  }
-
-  // System Status
-  async getSystemStatus(): Promise<any> {
-    try {
-      const response = await this.api.get<ApiResponse<any>>('/api/system/status');
-      return response.data.data || {};
-    } catch (error) {
-      console.error('Get system status error:', error);
-      return { status: 'offline' };
-    }
-  }
-
-  // Health check
+  // Health check - FIXED: Use correct endpoint
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.api.get<ApiResponse>('/api/health');
-      return response.data.success || false;
+      const response = await this.api.get<any>('/health');
+      return response.data.status === 'ok';
     } catch (error) {
       return false;
     }
+  }
+
+  // Legacy methods - keeping for compatibility but not used
+  async getConversations(): Promise<any[]> {
+    console.warn('getConversations not implemented in MCP backend');
+    return [];
+  }
+
+  async getConversationHistory(conversationId: string): Promise<any[]> {
+    console.warn('getConversationHistory not implemented in MCP backend');
+    return [];
+  }
+
+  async generateMessage(request: MessageGenerationRequest): Promise<MessageGenerationResponse> {
+    console.warn('generateMessage not implemented in MCP backend');
+    throw new Error('Not implemented');
+  }
+
+  async sendMessage(conversationId: string, content: string): Promise<void> {
+    console.warn('sendMessage not implemented in MCP backend');
+    throw new Error('Not implemented');
+  }
+
+  async detectOpportunities(request: OpportunityDetectionRequest): Promise<OpportunityDetectionResponse> {
+    console.warn('detectOpportunities not implemented in MCP backend');
+    throw new Error('Not implemented');
+  }
+
+  async getMetrics(): Promise<any> {
+    // Alias to getAnalytics for compatibility
+    return this.getAnalytics();
+  }
+
+  async updateWorkflowConfig(workflow: string, config: any): Promise<void> {
+    console.warn('updateWorkflowConfig not implemented in MCP backend');
+    throw new Error('Not implemented');
+  }
+
+  async getWorkflowConfig(workflow: string): Promise<any> {
+    console.warn('getWorkflowConfig not implemented in MCP backend');
+    return {};
+  }
+
+  async getSystemStatus(): Promise<any> {
+    // Use health check as system status
+    const isHealthy = await this.healthCheck();
+    return { status: isHealthy ? 'online' : 'offline' };
   }
 }
 
