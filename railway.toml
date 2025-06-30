@@ -2,9 +2,10 @@
 builder = "dockerfile"
 
 [deploy]
-healthcheckPath = "/"
-healthcheckTimeout = 300
+healthcheckPath = "/health"
+healthcheckTimeout = 60
 restartPolicyType = "on_failure"
+startCommand = "/docker-entrypoint.sh"
 
 [[services]]
 name = "dating-ai-dashboard"
