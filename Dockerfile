@@ -1,50 +1,7 @@
 # Dockerfile para Railway deployment
-FROM node:18-alpi# Script para reemplazar PORT en la configuración y configurar nginx
-RUN cat > /docker-entrypoint.sh << 'EOF'
-#!/bin/sh
-# Configurar el puerto dinámico de Railway
-export PORT=${PORT:-80}
+FROM node:18-alpine as builder
 
-# Crear configuración nginx optimizada
-cat > /etc/nginx/conf.d/default.conf << NGINX_EOF
-server {
-    listen $PORT;
-    server_name localhost;
-    root /usr/share/nginx/html;
-    index index.html;
-
-    # Health check endpoint - DEBE responder rápido
-    location /health {
-        access_log off;
-        return 200 'healthy';
-        add_header Content-Type text/plain;
-    }
-
-    # Fallback para rutas de SPA
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-
-    # Archivos estáticos con cache
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-NGINX_EOF
-
-# Verificar sintaxis de nginx
-nginx -t
-
-# Iniciar nginx en foreground
-exec nginx -g 'daemon off;'
-EOF
-
-RUN chmod +x /docker-entrypoint.sh
-
-EXPOSE $PORT
-
-CMD ["/docker-entrypoint.sh"]WORKDIR /app
+WORKDIR /app
 
 # Copiar package files
 COPY package*.json ./
@@ -64,20 +21,54 @@ FROM nginx:alpine
 # Copiar archivos build
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Script para reemplazar PORT en la configuración
-COPY <<EOF /docker-entrypoint.sh
+# Crear script de configuración optimizado
+RUN cat > /docker-entrypoint.sh << 'EOF'
 #!/bin/sh
-PORT=\${PORT:-80}
-sed -i "s/\\\${PORT:-80}/\$PORT/g" /etc/nginx/conf.d/default.conf
+# Configurar el puerto dinámico de Railway
+export PORT=${PORT:-80}
+
+# Crear configuración nginx optimizada para Railway
+cat > /etc/nginx/conf.d/default.conf << NGINX_EOF
+server {
+    listen $PORT;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Health check endpoint - DEBE responder rápido
+    location /health {
+        access_log off;
+        return 200 'healthy\n';
+        add_header Content-Type text/plain;
+    }
+
+    # Fallback para rutas de SPA
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # Archivos estáticos con cache
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Configuración de gzip
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+}
+NGINX_EOF
+
+# Verificar sintaxis de nginx
+nginx -t
+
+# Iniciar nginx en foreground
 exec nginx -g 'daemon off;'
 EOF
 
 RUN chmod +x /docker-entrypoint.sh
 
-EXPOSE \${PORT:-80}
+# Exponer puerto dinámico
+EXPOSE $PORT
 
 CMD ["/docker-entrypoint.sh"]
-
-CMD ["nginx", "-g", "daemon off;"]
-
-CMD ["nginx", "-g", "daemon off;"]
