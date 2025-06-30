@@ -132,7 +132,7 @@ export const DiscoveryPipelineDashboard: React.FC = () => {
       setIsAnalyzing(true);
       const result = await apiService.analyzeProfile({
         instagram_url: profile.instagramUrl,
-        detailed_analysis: true,
+        enhanced_analysis: true,  // FIXED: Use enhanced_analysis instead of detailed_analysis
       });
       
       updateProfile(profile.id, {
@@ -165,7 +165,7 @@ export const DiscoveryPipelineDashboard: React.FC = () => {
       setIsAnalyzing(true);
       await apiService.analyzeProfile({
         instagram_url: manualUrl,
-        detailed_analysis: true,
+        enhanced_analysis: true,  // FIXED: Use enhanced_analysis instead of detailed_analysis
       });
       
       showSuccess('Manual Analysis Complete', `Successfully analyzed profile from ${manualUrl}`);
