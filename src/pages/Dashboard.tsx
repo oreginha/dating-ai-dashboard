@@ -7,8 +7,7 @@ import {
   ClockIcon,
   HeartIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon,
-  InformationCircleIcon
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation, MetricWithHelp, SectionWithHelp } from '../hooks/useTranslation';
 import { useApi } from '../services/api';
@@ -155,14 +154,6 @@ export const Dashboard: React.FC = () => {
     
     const diffInDays = Math.floor(diffInHours / 24);
     return t('common.daysAgo', [diffInDays.toString()]);
-  };
-
-  const getStatusColor = () => {
-    switch (systemStatus) {
-      case 'online': return 'text-green-600';
-      case 'offline': return 'text-red-600';
-      default: return 'text-yellow-600';
-    }
   };
 
   const getStatusText = () => {
