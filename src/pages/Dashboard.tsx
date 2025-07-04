@@ -1,337 +1,325 @@
 import React, { useState, useEffect } from 'react';
-import { DatingKPICard } from '../components/KPICard';
 import { 
-  CompatibilityDistribution, 
-  ResponseRateTrend, 
-  ConversationFunnel,
-  ActivityHeatmap
-} from '../components/Charts';
-import { GlobalQuickActions } from '../components/QuickActions';
-import { 
-  ClockIcon
+  UserPlusIcon, 
+  ChartBarIcon, 
+  ChatBubbleLeftRightIcon, 
+  SparklesIcon,
+  ClockIcon,
+  HeartIcon
 } from '@heroicons/react/24/outline';
+import { useTranslation, MetricWithHelp, SectionWithHelp } from '../hooks/useTranslation';
+import { useApi } from '../services/api';
+import { useAppStore } from '../store';
 
-// Simulación de datos para el dashboard
-const dashboardData = {
-  systemStatus: {
-    discoveryRunning: true,
-    conversationManagerActive: true,
-    opportunityDetectorActive: true,
-    autoResponseActive: false,
-  },
-  todayMetrics: {
-    profilesAnalyzed: 24,
-    messagesSent: 18,
-    opportunitiesDetected: 7,
-    responsesReceived: 12,
-    newMatches: 3,
-  },
-  trends: {
-    profilesChange: 15.2,
-    messagesChange: -8.1,
-    opportunitiesChange: 34.6,
-    responsesChange: 22.3,
-    matchesChange: 50.0,
-  },
-  recentOpportunities: [
-    {
-      id: '1',
-      profileName: 'María López',
-      opportunityType: 'story_interaction',
-      confidence: 89,
-      timeDetected: '2 min ago',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      profileName: 'Ana García',
-      opportunityType: 'profile_view',
-      confidence: 76,
-      timeDetected: '15 min ago',
-      status: 'responded'
-    },
-    {
-      id: '3',
-      profileName: 'Carmen Ruiz',
-      opportunityType: 'mutual_friend',
-      confidence: 92,
-      timeDetected: '1 hora ago',
-      status: 'pending'
-    },
-  ],
-  pendingApprovals: [
-    {
-      id: '1',
-      conversationWith: 'Laura Mendez',
-      messagePreview: 'Hola Laura! Vi que también te gusta la fotografía...',
-      confidence: 85,
-      variants: 3
-    },
-    {
-      id: '2',
-      conversationWith: 'Patricia Silva',
-      messagePreview: 'Qué tal Patricia! Me encantó tu último post sobre...',
-      confidence: 78,
-      variants: 3
-    },
-  ],
-  nextActions: [
-    {
-      id: '1',
-      action: 'Seguimiento con Ana García',
-      scheduledFor: '2 horas',
-      type: 'follow_up'
-    },
-    {
-      id: '2',
-      action: 'Discovery Pipeline - Nuevos perfiles',
-      scheduledFor: '4 horas',
-      type: 'discovery'
-    },
-    {
-      id: '3',
-      action: 'Revisión semanal de métricas',
-      scheduledFor: '1 día',
-      type: 'analytics'
-    },
-  ]
-};
+interface DashboardStats {
+  profilesAnalyzed: number;
+  avgCompatibility: number;
+  activeConversations: number;
+  successRate: number;
+}
+
+interface RecentActivity {
+  id: string;
+  action: string;
+  target: string;
+  score?: number;
+  timestamp: string;
+}
 
 export const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
+  const { apiService, handleApiError } = useApi();
+  const { addNotification } = useAppStore();
+  
+  const [stats, setStats] = useState<DashboardStats>({
+    profilesAnalyzed: 0,
+    avgCompatibility: 0,
+    activeConversations: 0,
+    successRate: 0
+  });
+  
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(dashboardData);
+  const [systemStatus, setSystemStatus] = useState<'online' | 'offline' | 'connecting'>('connecting');
 
+  // Cargar datos del dashboard
   useEffect(() => {
-    // Simular carga de datos
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
+    loadDashboardData();
+    checkSystemStatus();
+    
+    // Actualizar cada 30 segundos
+    const interval = setInterval(() => {
+      loadDashboardData();
+      checkSystemStatus();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  const handleStartDiscovery = () => {
-    console.log('Iniciando discovery pipeline...');
-    setData(prev => ({
-      ...prev,
-      systemStatus: { ...prev.systemStatus, discoveryRunning: true }
-    }));
-  };
-
-  const handleStopDiscovery = () => {
-    console.log('Deteniendo discovery pipeline...');
-    setData(prev => ({
-      ...prev,
-      systemStatus: { ...prev.systemStatus, discoveryRunning: false }
-    }));
-  };
-
-  const handleManualAnalysis = () => {
-    const url = prompt('URL de Instagram a analizar:');
-    if (url) {
-      console.log('Analizando:', url);
-      // Aquí se integraría con el MCP server
+  const loadDashboardData = async () => {
+    try {
+      console.log('📊 Loading dashboard data...');
+      
+      const [analyticsResponse, profilesResponse] = await Promise.all([
+        apiService.getAnalytics(),
+        apiService.getProfiles()
+      ]);
+      
+      if (analyticsResponse.success && analyticsResponse.data) {
+        const data = analyticsResponse.data;
+        
+        setStats({
+          profilesAnalyzed: data.summary.total_profiles_analyzed,
+          avgCompatibility: Math.round(data.summary.avg_compatibility_score * 100),
+          activeConversations: data.summary.successful_conversations,
+          successRate: data.summary.active_strategies
+        });
+        
+        // Convertir actividad reciente al formato esperado
+        const activities: RecentActivity[] = data.recent_activity.map((activity, index) => ({
+          id: `activity-${index}`,
+          action: translateActivity(activity.action),
+          target: activity.target,
+          score: activity.score,
+          timestamp: activity.timestamp
+        }));
+        
+        setRecentActivity(activities);
+      }
+      
+      setLoading(false);
+      console.log('✅ Dashboard data loaded successfully');
+      
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error);
+      handleApiError(error, 'Error cargando datos del dashboard');
+      setLoading(false);
     }
   };
 
-  const handleRefreshData = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      // Simular actualización de datos
-      setData(prev => ({
-        ...prev,
-        todayMetrics: {
-          ...prev.todayMetrics,
-          profilesAnalyzed: prev.todayMetrics.profilesAnalyzed + Math.floor(Math.random() * 5),
-        }
-      }));
-    }, 1000);
+  const checkSystemStatus = async () => {
+    try {
+      const isHealthy = await apiService.healthCheck();
+      setSystemStatus(isHealthy ? 'online' : 'offline');
+    } catch (error) {
+      setSystemStatus('offline');
+    }
   };
 
+  const translateActivity = (action: string): string => {
+    const translations: Record<string, string> = {
+      'profile_analyzed': 'Perfil analizado',
+      'strategy_generated': 'Estrategia generada',
+      'compatibility_calculated': 'Compatibilidad calculada',
+      'message_sent': 'Mensaje enviado'
+    };
+    
+    return translations[action] || action;
+  };
+
+  const handleQuickAction = (action: string) => {
+    console.log(`🎯 Quick action: ${action}`);
+    addNotification({
+      type: 'info',
+      title: 'Navegando...',
+      message: `Dirigiendo a ${action}`
+    });
+    
+    // Aquí se navegaría a la sección correspondiente
+    // window.location.href = `/${action}`;
+  };
+
+  const formatTimeAgo = (timestamp: string): string => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return t('common.now');
+    if (diffInMinutes < 60) return t('common.minutesAgo', [diffInMinutes.toString()]);
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return t('common.hoursAgo', [diffInHours.toString()]);
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return t('common.daysAgo', [diffInDays.toString()]);
+  };
+
+  const getStatusColor = () => {
+    switch (systemStatus) {
+      case 'online': return 'text-green-600';
+      case 'offline': return 'text-red-600';
+      default: return 'text-yellow-600';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (systemStatus) {
+      case 'online': return t('common.online');
+      case 'offline': return t('common.offline');
+      default: return t('common.connecting');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span className="ml-3 text-gray-600">{t('common.loading')}</span>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {/* Dashboard Overview */}
-      <div className="space-y-6">
-        {/* Header Stats Row */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-          <DatingKPICard
-            type="profiles"
-            value={data.todayMetrics.profilesAnalyzed}
-            change={data.trends.profilesChange}
-            loading={loading}
-          />
-          <DatingKPICard
-            type="messages"
-            value={data.todayMetrics.messagesSent}
-            change={data.trends.messagesChange}
-            loading={loading}
-          />
-          <DatingKPICard
-            type="opportunities"
-            value={data.todayMetrics.opportunitiesDetected}
-            change={data.trends.opportunitiesChange}
-            loading={loading}
-          />
-          <DatingKPICard
-            type="responses"
-            value={data.todayMetrics.responsesReceived}
-            change={data.trends.responsesChange}
-            loading={loading}
-          />
-          <DatingKPICard
-            type="matches"
-            value={data.todayMetrics.newMatches}
-            change={data.trends.matchesChange}
-            loading={loading}
-          />
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Left Column - Charts */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* System Status Cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className={`w-3 h-3 rounded-full ${
-                      data.systemStatus.discoveryRunning ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
-                    }`}></div>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-lg font-medium text-gray-900">Discovery Pipeline</h3>
-                    <p className="text-sm text-gray-500">
-                      {data.systemStatus.discoveryRunning ? 'Ejecutándose activamente' : 'Detenido'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className={`w-3 h-3 rounded-full ${
-                      data.systemStatus.autoResponseActive ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'
-                    }`}></div>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-lg font-medium text-gray-900">Auto-Response</h3>
-                    <p className="text-sm text-gray-500">
-                      {data.systemStatus.autoResponseActive ? 'Enviando automáticamente' : 'Requiere aprobación'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribución de Compatibilidad</h3>
-                <CompatibilityDistribution loading={loading} />
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tasa de Respuesta (7 días)</h3>
-                <ResponseRateTrend loading={loading} />
-              </div>
-            </div>
-
-            {/* Conversation Funnel */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Embudo de Conversión</h3>
-              <ConversationFunnel />
-            </div>
-
-            {/* Activity Heatmap */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Actividad Semanal</h3>
-              <ActivityHeatmap />
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
+            <p className="text-blue-100 mt-1">{t('dashboard.subtitle')}</p>
           </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${systemStatus === 'online' ? 'bg-green-400' : 'bg-red-400'}`}></div>
+            <span className="text-sm">{getStatusText()}</span>
+          </div>
+        </div>
+      </div>
 
-          {/* Right Column - Quick Actions & Lists */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <GlobalQuickActions
-              onStartDiscovery={handleStartDiscovery}
-              onStopDiscovery={handleStopDiscovery}
-              onManualAnalysis={handleManualAnalysis}
-              onRefreshData={handleRefreshData}
-              discoveryRunning={data.systemStatus.discoveryRunning}
-              loading={loading}
-            />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricWithHelp
+          label={t('dashboard.stats.profilesAnalyzed')}
+          value={stats.profilesAnalyzed}
+          helpKey="profilesAnalyzed"
+          trend="up"
+          trendValue="+2"
+        />
+        
+        <MetricWithHelp
+          label={t('dashboard.stats.avgCompatibility')}
+          value={`${stats.avgCompatibility}%`}
+          helpKey="compatibilityScore"
+          trend="up"
+          trendValue="+5%"
+        />
+        
+        <MetricWithHelp
+          label={t('dashboard.stats.activeConversations')}
+          value={stats.activeConversations}
+          helpKey="activeConversations"
+          trend="neutral"
+          trendValue="0"
+        />
+        
+        <MetricWithHelp
+          label={t('dashboard.stats.successRate')}
+          value={`${stats.successRate}%`}
+          helpKey="successRate"
+          trend="up"
+          trendValue="+12%"
+        />
+      </div>
 
-            {/* Recent Opportunities */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Oportunidades Recientes</h3>
-              <div className="space-y-3">
-                {data.recentOpportunities.map((opportunity) => (
-                  <div key={opportunity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{opportunity.profileName}</p>
-                      <p className="text-xs text-gray-500">{opportunity.opportunityType}</p>
-                      <p className="text-xs text-gray-400">{opportunity.timeDetected}</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        opportunity.confidence > 80 ? 'bg-green-100 text-green-800' :
-                        opportunity.confidence > 60 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {opportunity.confidence}%
-                      </span>
-                      <button className="text-xs text-blue-600 hover:text-blue-800">
-                        Responder
-                      </button>
-                    </div>
-                  </div>
-                ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
+        <SectionWithHelp 
+          title={t('dashboard.quickActions.title')}
+          className="lg:col-span-1"
+        >
+          <div className="space-y-3">
+            <button
+              onClick={() => handleQuickAction('discovery')}
+              className="w-full flex items-center gap-3 p-3 text-left rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <UserPlusIcon className="h-5 w-5 text-blue-600" />
+              <div>
+                <span className="font-medium text-gray-900">{t('dashboard.quickActions.analyzeProfile')}</span>
+                <p className="text-sm text-gray-500">Analiza un nuevo perfil de Instagram</p>
               </div>
+            </button>
+            
+            <button
+              onClick={() => handleQuickAction('profiles')}
+              className="w-full flex items-center gap-3 p-3 text-left rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors"
+            >
+              <HeartIcon className="h-5 w-5 text-green-600" />
+              <div>
+                <span className="font-medium text-gray-900">{t('dashboard.quickActions.viewProfiles')}</span>
+                <p className="text-sm text-gray-500">Revisa perfiles analizados</p>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleQuickAction('opportunities')}
+              className="w-full flex items-center gap-3 p-3 text-left rounded-lg border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50 transition-colors"
+            >
+              <SparklesIcon className="h-5 w-5 text-yellow-600" />
+              <div>
+                <span className="font-medium text-gray-900">{t('dashboard.quickActions.checkOpportunities')}</span>
+                <p className="text-sm text-gray-500">Ve oportunidades detectadas</p>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleQuickAction('strategies')}
+              className="w-full flex items-center gap-3 p-3 text-left rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+            >
+              <ChatBubbleLeftRightIcon className="h-5 w-5 text-purple-600" />
+              <div>
+                <span className="font-medium text-gray-900">{t('dashboard.quickActions.generateStrategy')}</span>
+                <p className="text-sm text-gray-500">Crea estrategias de conversación</p>
+              </div>
+            </button>
+          </div>
+        </SectionWithHelp>
+
+        {/* Recent Activity */}
+        <SectionWithHelp 
+          title={t('dashboard.recentActivity.title')}
+          className="lg:col-span-2"
+        >
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <ClockIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>{t('dashboard.recentActivity.noActivity')}</p>
             </div>
-
-            {/* Pending Approvals */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Mensajes Pendientes</h3>
-              <div className="space-y-3">
-                {data.pendingApprovals.map((approval) => (
-                  <div key={approval.id} className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-900">{approval.conversationWith}</p>
-                    <p className="text-xs text-gray-600 mt-1">{approval.messagePreview}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-blue-600">{approval.variants} variantes</span>
-                      <div className="flex space-x-2">
-                        <button className="text-xs bg-green-500 text-white px-2 py-1 rounded">
-                          ✓ Aprobar
-                        </button>
-                        <button className="text-xs bg-gray-500 text-white px-2 py-1 rounded">
-                          ✎ Editar
-                        </button>
-                      </div>
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div>
+                      <span className="font-medium text-gray-900">{activity.action}</span>
+                      <span className="text-gray-600 ml-2">{activity.target}</span>
+                      {activity.score && (
+                        <span className="text-sm text-green-600 ml-2">
+                          ({Math.round(activity.score * 100)}% compatibilidad)
+                        </span>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
+                  <span className="text-sm text-gray-500">
+                    {formatTimeAgo(activity.timestamp)}
+                  </span>
+                </div>
+              ))}
             </div>
+          )}
+        </SectionWithHelp>
+      </div>
 
-            {/* Next Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Próximas Acciones</h3>
-              <div className="space-y-3">
-                {data.nextActions.map((action) => (
-                  <div key={action.id} className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <ClockIcon className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{action.action}</p>
-                      <p className="text-xs text-gray-500">En {action.scheduledFor}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+      {/* Tips para nuevos usuarios */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="flex items-start gap-3">
+          <SparklesIcon className="h-6 w-6 text-blue-600 mt-1" />
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-2">🚀 ¿Nuevo en Dating AI Agent?</h3>
+            <div className="text-blue-800 space-y-1">
+              <p>• <strong>Empezá analizando un perfil:</strong> Usa "Analizar Perfil" para empezar</p>
+              <p>• <strong>Revisá la compatibilidad:</strong> El sistema calcula automáticamente scores de compatibilidad</p>
+              <p>• <strong>Generá estrategias:</strong> Obtén mensajes personalizados para cada perfil</p>
+              <p>• <strong>Seguí oportunidades:</strong> El sistema detecta momentos perfectos para actuar</p>
             </div>
           </div>
         </div>
