@@ -19,6 +19,7 @@ import {
 import clsx from 'clsx';
 import { useNotifications } from '../hooks/useNotifications';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAppStore } from '../store';
 
 interface NavigationItem {
   name: string;
@@ -38,7 +39,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath = '/' }) =
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const { addNotification } = useAppStore();
   
   // Navegación traducida al español
   const navigation: NavigationItem[] = [
@@ -85,7 +86,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath = '/' }) =
   
   const {
     notifications,
-    addNotification,
     removeNotification,
     clearAll,
     unreadCount
@@ -132,7 +132,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath = '/' }) =
 
   // Funciones para configuración
   const handleSettingsClick = () => {
-    setShowSettings(true);
     addNotification({
       type: 'info',
       title: 'Configuración',
