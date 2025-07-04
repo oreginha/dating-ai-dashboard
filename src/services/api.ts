@@ -3,7 +3,9 @@ import { useAppStore } from '../store';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// Types - FIXED: Match backend interface
+console.log('🔗 API Base URL:', API_BASE_URL); // Debug log
+
+// Types - Updated to match real backend
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -13,65 +15,134 @@ export interface ApiResponse<T = any> {
 
 export interface ProfileAnalysisRequest {
   instagram_url: string;
-  enhanced_analysis?: boolean;  // FIXED: Use enhanced_analysis instead of detailed_analysis
+  enhanced_analysis?: boolean;
 }
 
 export interface ProfileAnalysisResponse {
-  profile_id: string;
+  success: boolean;
+  profile_id?: number;
+  data?: {
+    profile_id: number;
+    username: string;
+    full_name?: string;
+    bio?: string;
+    followers_count: number;
+    following_count: number;
+    posts_count: number;
+    is_verified: boolean;
+    is_private: boolean;
+    profile_pic_url?: string;
+    scraped_at: string;
+  };
+  error?: string;
+}
+
+export interface CompatibilityRequest {
+  profile_id: number;
+  enhanced_analysis?: boolean;
+}
+
+export interface CompatibilityResponse {
+  success: boolean;
+  data?: {
+    profile_id: number;
+    compatibility_score: number;
+    tier_breakdown: {
+      core_values: number;
+      social_patterns: number;
+      interests: number;
+      communication: number;
+    };
+    success_prediction: {
+      success_probability: number;
+      confidence_level: 'high' | 'medium' | 'low';
+      recommendation: {
+        action: string;
+        approach: string;
+      };
+    };
+    analyzed_at: string;
+  };
+  error?: string;
+}
+
+export interface StrategyRequest {
+  profile_id: number;
+  objective?: string;
+  enhanced_strategy?: boolean;
+}
+
+export interface StrategyResponse {
+  success: boolean;
+  data?: {
+    profile_id: number;
+    objective: string;
+    conversation_plan: {
+      phase_1: ConversationPhase;
+      phase_2: ConversationPhase;
+      phase_3: ConversationPhase;
+      phase_4: ConversationPhase;
+    };
+    timing_strategy: {
+      initial_message: string;
+      follow_up: string;
+      escalation: string;
+    };
+    success_indicators: string[];
+    red_flags: string[];
+    generated_at: string;
+  };
+  error?: string;
+}
+
+interface ConversationPhase {
   name: string;
-  age?: number;
-  location?: string;
-  compatibility_score: number;
-  photos: string[];
-  bio?: string;
-  interests: string[];
-  lifestyle_analysis: {
-    activity_level: string;
-    social_preferences: string;
-    values: string[];
-  };
-  compatibility_details: {
-    score_breakdown: Record<string, number>;
-    reasons: string[];
-    concerns: string[];
-  };
+  duration: string;
+  objective: string;
+  sample_messages: string[];
 }
 
-export interface MessageGenerationRequest {
-  conversation_id: string;
-  context: string;
-  message_type: 'opener' | 'follow_up' | 'opportunity_response';
-  tone: 'casual' | 'flirty' | 'friendly' | 'humorous';
-}
-
-export interface MessageGenerationResponse {
-  variants: Array<{
-    content: string;
-    confidence: number;
-    tone: string;
-    reasoning: string;
+export interface ProfileListResponse {
+  success: boolean;
+  profiles?: Array<{
+    profile_id: number;
+    username: string;
+    compatibility_score: number;
+    status: string;
+    last_updated: string;
   }>;
-  context_analysis: {
-    mood: string;
-    engagement_level: string;
-    suggested_timing: string;
+  total_count?: number;
+  error?: string;
+}
+
+export interface AnalyticsResponse {
+  success: boolean;
+  data?: {
+    summary: {
+      total_profiles_analyzed: number;
+      avg_compatibility_score: number;
+      successful_conversations: number;
+      active_strategies: number;
+    };
+    compatibility_distribution: {
+      high_compatibility: number;
+      medium_compatibility: number;
+      low_compatibility: number;
+    };
+    recent_activity: Array<{
+      action: string;
+      target: string;
+      score?: number;
+      timestamp: string;
+    }>;
+    system_health: {
+      api_status: string;
+      database_status: string;
+      scraping_status: string;
+      last_check: string;
+    };
   };
-}
-
-export interface OpportunityDetectionRequest {
-  conversation_id: string;
-  recent_activity: any[];
-}
-
-export interface OpportunityDetectionResponse {
-  opportunities: Array<{
-    type: string;
-    description: string;
-    confidence: number;
-    priority: 'low' | 'medium' | 'high' | 'urgent';
-    suggested_response: string;
-    timing_recommendation: string;
-  }>;
+  error?: string;
 }
 
 class ApiService {
@@ -89,6 +160,8 @@ class ApiService {
     // Request interceptor
     this.api.interceptors.request.use(
       (config) => {
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        
         // Add auth token if available
         const token = localStorage.getItem('auth_token');
         if (token) {
@@ -96,26 +169,32 @@ class ApiService {
         }
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        console.error('❌ Request Error:', error);
+        return Promise.reject(error);
+      }
     );
 
     // Response interceptor
     this.api.interceptors.response.use(
-      (response: AxiosResponse<ApiResponse>) => response,
+      (response: AxiosResponse) => {
+        console.log(`✅ API Response: ${response.status} ${response.config.url}`);
+        return response;
+      },
       (error) => {
+        console.error('❌ Response Error:', error);
+        
         const store = useAppStore.getState();
         
         if (error.response?.status === 401) {
-          // Handle auth errors
           localStorage.removeItem('auth_token');
           store.setConnectionStatus(false);
         } else if (error.code === 'ECONNABORTED' || error.code === 'NETWORK_ERROR') {
-          // Handle network errors
           store.setSystemStatus('offline');
           store.addNotification({
             type: 'error',
-            title: 'Connection Error',
-            message: 'Unable to connect to the server. Please check your internet connection.',
+            title: 'Error de Conexión',
+            message: 'No se pudo conectar al servidor. Verificá tu conexión a internet.',
           });
         }
         
@@ -124,138 +203,230 @@ class ApiService {
     );
   }
 
-  // Profile Analysis - FIXED: Use /mcp/ endpoints
+  // Profile Analysis - Using real MCP endpoints
   async analyzeProfile(request: ProfileAnalysisRequest): Promise<ProfileAnalysisResponse> {
     try {
-      const response = await this.api.post<any>(
+      console.log('🎯 Analyzing profile:', request.instagram_url);
+      
+      const response = await this.api.post<ProfileAnalysisResponse>(
         '/mcp/profile/analyze',
-        request
+        {
+          instagram_url: request.instagram_url,
+          enhanced_analysis: request.enhanced_analysis || true
+        }
       );
       
-      // The backend returns direct data, not wrapped in ApiResponse
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Profile analysis failed');
-      }
-      
+      console.log('✅ Profile analysis response:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Profile analysis error:', error);
-      throw error;
-    }
-  }
-
-  // Get Profiles - FIXED: Use /mcp/ endpoint
-  async getProfiles(): Promise<any[]> {
-    try {
-      const response = await this.api.get<any>('/mcp/profiles');
-      return response.data.profiles || [];
-    } catch (error) {
-      console.error('Get profiles error:', error);
-      return [];
-    }
-  }
-
-  // Get Analytics - FIXED: Use /mcp/ endpoint
-  async getAnalytics(): Promise<any> {
-    try {
-      const response = await this.api.get<any>('/mcp/analytics');
-      return response.data || {};
-    } catch (error) {
-      console.error('Get analytics error:', error);
-      return {};
-    }
-  }
-
-  // Strategy Generation - FIXED: Use /mcp/ endpoint
-  async generateStrategy(profileId: number, objective: string = 'romantic_connection'): Promise<any> {
-    try {
-      const response = await this.api.post<any>('/mcp/strategy/generate', {
-        profile_id: profileId,
-        objective,
-        enhanced_strategy: true
-      });
       
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Strategy generation failed');
-      }
+    } catch (error: any) {
+      console.error('❌ Profile analysis error:', error);
       
+      const errorMessage = error.response?.data?.error || 
+                          error.message || 
+                          'Error analizando el perfil';
+      
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+
+  // Compatibility Analysis
+  async analyzeCompatibility(request: CompatibilityRequest): Promise<CompatibilityResponse> {
+    try {
+      console.log('💕 Analyzing compatibility for profile:', request.profile_id);
+      
+      const response = await this.api.post<CompatibilityResponse>(
+        '/mcp/compatibility/analyze',
+        {
+          profile_id: request.profile_id,
+          enhanced_analysis: request.enhanced_analysis || true
+        }
+      );
+      
+      console.log('✅ Compatibility analysis response:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Strategy generation error:', error);
-      throw error;
+      
+    } catch (error: any) {
+      console.error('❌ Compatibility analysis error:', error);
+      
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error calculando compatibilidad'
+      };
     }
   }
 
-  // Health check - FIXED: Use correct endpoint
+  // Strategy Generation
+  async generateStrategy(request: StrategyRequest): Promise<StrategyResponse> {
+    try {
+      console.log('🧠 Generating strategy for profile:', request.profile_id);
+      
+      const response = await this.api.post<StrategyResponse>(
+        '/mcp/strategy/generate',
+        {
+          profile_id: request.profile_id,
+          objective: request.objective || 'romantic_connection',
+          enhanced_strategy: request.enhanced_strategy || true
+        }
+      );
+      
+      console.log('✅ Strategy generation response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Strategy generation error:', error);
+      
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error generando estrategia'
+      };
+    }
+  }
+
+  // Get Profiles List
+  async getProfiles(): Promise<ProfileListResponse> {
+    try {
+      console.log('📋 Fetching profiles list');
+      
+      const response = await this.api.get<ProfileListResponse>('/mcp/profiles');
+      
+      console.log('✅ Profiles list response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Get profiles error:', error);
+      
+      return {
+        success: false,
+        profiles: [],
+        total_count: 0,
+        error: error.response?.data?.error || 'Error obteniendo perfiles'
+      };
+    }
+  }
+
+  // Get Analytics
+  async getAnalytics(): Promise<AnalyticsResponse> {
+    try {
+      console.log('📊 Fetching analytics');
+      
+      const response = await this.api.get<AnalyticsResponse>('/mcp/analytics');
+      
+      console.log('✅ Analytics response:', response.data);
+      return response.data;
+      
+    } catch (error: any) {
+      console.error('❌ Get analytics error:', error);
+      
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error obteniendo analytics'
+      };
+    }
+  }
+
+  // Health check
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.api.get<any>('/health');
-      return response.data.status === 'ok';
+      console.log('🏥 Health check');
+      
+      const response = await this.api.get('/health');
+      const isHealthy = response.data.status === 'healthy';
+      
+      console.log('✅ Health check result:', isHealthy);
+      return isHealthy;
+      
     } catch (error) {
+      console.error('❌ Health check failed:', error);
       return false;
     }
   }
 
-  // Legacy methods - keeping for compatibility but not used
-  // FIXED: Add _ prefix to suppress unused parameter warnings
+  // System status
+  async getSystemStatus(): Promise<any> {
+    try {
+      const response = await this.api.get('/mcp/status');
+      return response.data;
+    } catch (error) {
+      console.error('❌ System status error:', error);
+      return { mcp_system: 'error' };
+    }
+  }
+
+  // Legacy methods - marked as not implemented
   async getConversations(): Promise<any[]> {
-    console.warn('getConversations not implemented in MCP backend');
+    console.warn('getConversations: Funcionalidad próximamente');
     return [];
   }
 
   async getConversationHistory(_conversationId: string): Promise<any[]> {
-    console.warn('getConversationHistory not implemented in MCP backend');
+    console.warn('getConversationHistory: Funcionalidad próximamente');
     return [];
   }
 
-  async generateMessage(_request: MessageGenerationRequest): Promise<MessageGenerationResponse> {
-    console.warn('generateMessage not implemented in MCP backend');
-    throw new Error('Not implemented');
+  async generateMessage(_request: any): Promise<any> {
+    console.warn('generateMessage: Funcionalidad próximamente');
+    throw new Error('Funcionalidad próximamente');
   }
 
   async sendMessage(_conversationId: string, _content: string): Promise<void> {
-    console.warn('sendMessage not implemented in MCP backend');
-    throw new Error('Not implemented');
+    console.warn('sendMessage: Funcionalidad próximamente');
+    throw new Error('Funcionalidad próximamente');
   }
 
-  async detectOpportunities(_request: OpportunityDetectionRequest): Promise<OpportunityDetectionResponse> {
-    console.warn('detectOpportunities not implemented in MCP backend');
-    throw new Error('Not implemented');
+  async detectOpportunities(_request: any): Promise<any> {
+    console.warn('detectOpportunities: Funcionalidad próximamente');
+    throw new Error('Funcionalidad próximamente');
   }
 
   async getMetrics(): Promise<any> {
-    // Alias to getAnalytics for compatibility
+    // Alias to getAnalytics
     return this.getAnalytics();
   }
 
   async updateWorkflowConfig(_workflow: string, _config: any): Promise<void> {
-    console.warn('updateWorkflowConfig not implemented in MCP backend');
-    throw new Error('Not implemented');
+    console.warn('updateWorkflowConfig: Funcionalidad próximamente');
+    throw new Error('Funcionalidad próximamente');
   }
 
   async getWorkflowConfig(_workflow: string): Promise<any> {
-    console.warn('getWorkflowConfig not implemented in MCP backend');
+    console.warn('getWorkflowConfig: Funcionalidad próximamente');
     return {};
-  }
-
-  async getSystemStatus(): Promise<any> {
-    // Use health check as system status
-    const isHealthy = await this.healthCheck();
-    return { status: isHealthy ? 'online' : 'offline' };
   }
 }
 
 export const apiService = new ApiService();
 
-// Custom hooks for API calls
+// Custom hooks for API calls with Spanish error messages
 export const useApi = () => {
   const store = useAppStore();
 
-  const handleApiError = (error: any, defaultMessage: string) => {
-    const message = error.response?.data?.error || error.message || defaultMessage;
+  const handleApiError = (error: any, defaultMessage: string = 'Error inesperado') => {
+    let message = defaultMessage;
+    
+    if (error.response?.data?.error) {
+      message = error.response.data.error;
+    } else if (error.message) {
+      message = error.message;
+    }
+    
+    // Traducir mensajes de error comunes
+    if (message.includes('Network Error')) {
+      message = 'Error de red. Verificá tu conexión a internet.';
+    } else if (message.includes('timeout')) {
+      message = 'La solicitud tardó demasiado. Intentá de nuevo.';
+    } else if (message.includes('404')) {
+      message = 'Recurso no encontrado.';
+    } else if (message.includes('500')) {
+      message = 'Error interno del servidor.';
+    }
+    
     store.addNotification({
       type: 'error',
-      title: 'API Error',
+      title: 'Error',
       message,
     });
   };
@@ -263,7 +434,7 @@ export const useApi = () => {
   const handleApiSuccess = (message: string) => {
     store.addNotification({
       type: 'success',
-      title: 'Success',
+      title: 'Éxito',
       message,
     });
   };
@@ -274,3 +445,5 @@ export const useApi = () => {
     handleApiSuccess,
   };
 };
+
+export default apiService;
