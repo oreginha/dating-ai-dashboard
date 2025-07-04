@@ -1,393 +1,464 @@
-import { useState } from 'react';
-import { useAppStore, useProfiles, useConfig } from '../store';
-import { useApi } from '../services/api';
-import { useNotifications } from '../components/Notifications';
+import React, { useState } from 'react';
+import { 
+  MagnifyingGlassIcon,
+  ChartBarIcon,
+  UserIcon,
+  HeartIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
+import { useTranslation, SectionWithHelp, HelpTooltip } from '../hooks/useTranslation';
+import { useApi, ProfileAnalysisRequest, ProfileAnalysisResponse, CompatibilityResponse, StrategyResponse } from '../services/api';
 
-interface DiscoveryFilters {
-  compatibility: number;
-  location: string;
-  ageRange: [number, number];
-  status: string;
-  dateRange: string;
+interface AnalysisResult {
+  profile?: ProfileAnalysisResponse['data'];
+  compatibility?: CompatibilityResponse['data'];
+  strategy?: StrategyResponse['data'];
 }
 
-interface ProfileCardProps {
-  profile: any;
-  onAnalyze: (profile: any) => void;
-  onSkip: (profile: any) => void;
-  onPrioritize: (profile: any) => void;
-}
+export const DiscoveryPipelineDashboard: React.FC = () => {
+  const { t } = useTranslation();
+  const { apiService, handleApiError, handleApiSuccess } = useApi();
+  
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [enhancedAnalysis, setEnhancedAnalysis] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [currentStep, setCurrentStep] = useState<'idle' | 'profile' | 'compatibility' | 'strategy' | 'complete'>('idle');
 
-const ProfileCard: React.FC<ProfileCardProps> = ({ profile, onAnalyze, onSkip, onPrioritize }) => {
+  const isValidInstagramUrl = (url: string): boolean => {
+    const patterns = [
+      /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9._]+\/?$/,
+      /^instagram\.com\/[a-zA-Z0-9._]+\/?$/,
+      /^[a-zA-Z0-9._]+$/
+    ];
+    
+    return patterns.some(pattern => pattern.test(url));
+  };
+
+  const normalizeInstagramUrl = (url: string): string => {
+    // Si es solo el username, agregar el dominio completo
+    if (!/^https?:\/\//.test(url) && !url.includes('instagram.com')) {
+      return `https://instagram.com/${url.replace('@', '')}`;
+    }
+    
+    // Si empieza con instagram.com, agregar https://
+    if (url.startsWith('instagram.com')) {
+      return `https://${url}`;
+    }
+    
+    return url;
+  };
+
+  const handleAnalyzeProfile = async () => {
+    if (!instagramUrl.trim()) {
+      handleApiError({ message: 'Por favor ingresá una URL de Instagram' }, 'URL requerida');
+      return;
+    }
+
+    const normalizedUrl = normalizeInstagramUrl(instagramUrl.trim());
+    
+    if (!isValidInstagramUrl(normalizedUrl)) {
+      handleApiError({ message: 'URL de Instagram inválida' }, 'Formato incorrecto');
+      return;
+    }
+
+    setAnalyzing(true);
+    setAnalysisResult(null);
+    setCurrentStep('profile');
+
+    try {
+      console.log('🎯 Starting full analysis for:', normalizedUrl);
+
+      // Paso 1: Análisis del perfil
+      setCurrentStep('profile');
+      const profileRequest: ProfileAnalysisRequest = {
+        instagram_url: normalizedUrl,
+        enhanced_analysis: enhancedAnalysis
+      };
+
+      const profileResponse = await apiService.analyzeProfile(profileRequest);
+      
+      if (!profileResponse.success || !profileResponse.data) {
+        throw new Error(profileResponse.error || 'Error analizando perfil');
+      }
+
+      const profileData = profileResponse.data;
+      console.log('✅ Profile analysis completed:', profileData);
+
+      // Paso 2: Análisis de compatibilidad
+      setCurrentStep('compatibility');
+      const compatibilityResponse = await apiService.analyzeCompatibility({
+        profile_id: profileData.profile_id,
+        enhanced_analysis: enhancedAnalysis
+      });
+
+      if (!compatibilityResponse.success || !compatibilityResponse.data) {
+        throw new Error(compatibilityResponse.error || 'Error calculando compatibilidad');
+      }
+
+      const compatibilityData = compatibilityResponse.data;
+      console.log('✅ Compatibility analysis completed:', compatibilityData);
+
+      // Paso 3: Generación de estrategia
+      setCurrentStep('strategy');
+      const strategyResponse = await apiService.generateStrategy({
+        profile_id: profileData.profile_id,
+        objective: 'romantic_connection',
+        enhanced_strategy: enhancedAnalysis
+      });
+
+      if (!strategyResponse.success || !strategyResponse.data) {
+        throw new Error(strategyResponse.error || 'Error generando estrategia');
+      }
+
+      const strategyData = strategyResponse.data;
+      console.log('✅ Strategy generation completed:', strategyData);
+
+      // Completar análisis
+      setCurrentStep('complete');
+      setAnalysisResult({
+        profile: profileData,
+        compatibility: compatibilityData,
+        strategy: strategyData
+      });
+
+      handleApiSuccess('¡Análisis completo exitoso!');
+
+    } catch (error: any) {
+      console.error('❌ Analysis failed:', error);
+      handleApiError(error, 'Error durante el análisis');
+      setCurrentStep('idle');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const getStepStatus = (step: string) => {
+    if (currentStep === 'idle') return 'pending';
+    
+    const steps = ['profile', 'compatibility', 'strategy', 'complete'];
+    const currentIndex = steps.indexOf(currentStep);
+    const stepIndex = steps.indexOf(step);
+    
+    if (stepIndex < currentIndex) return 'completed';
+    if (stepIndex === currentIndex) return 'current';
+    return 'pending';
+  };
+
   const getCompatibilityColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-100';
-    if (score >= 60) return 'text-yellow-600 bg-yellow-100';
+    if (score >= 0.8) return 'text-green-600 bg-green-100';
+    if (score >= 0.6) return 'text-yellow-600 bg-yellow-100';
     return 'text-red-600 bg-red-100';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'discovered': return 'bg-blue-100 text-blue-800';
-      case 'analyzed': return 'bg-purple-100 text-purple-800';
-      case 'contacted': return 'bg-green-100 text-green-800';
-      case 'active': return 'bg-emerald-100 text-emerald-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-4">
-          <img
-            src={profile.photos[0] || '/default-avatar.png'}
-            alt={profile.name}
-            className="w-16 h-16 rounded-full object-cover"
-          />
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{profile.name}</h3>
-            <p className="text-sm text-gray-600">
-              {profile.age && `${profile.age} years old`}
-              {profile.location && ` • ${profile.location}`}
-            </p>
-            <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-              {profile.bio || 'No bio available'}
-            </p>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {profile.interests?.slice(0, 3).map((interest: string, index: number) => (
-                <span key={index} className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">
-                  {interest}
-                </span>
-              ))}
-              {profile.interests?.length > 3 && (
-                <span className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded">
-                  +{profile.interests.length - 3} more
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col items-end space-y-2">
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${getCompatibilityColor(profile.compatibilityScore)}`}>
-            {profile.compatibilityScore}%
-          </div>
-          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(profile.status)}`}>
-            {profile.status}
-          </span>
-        </div>
-      </div>
-      
-      <div className="flex justify-end space-x-2 mt-4">
-        <button
-          onClick={() => onSkip(profile)}
-          className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-        >
-          Skip
-        </button>
-        <button
-          onClick={() => onPrioritize(profile)}
-          className="px-3 py-1 text-sm text-yellow-600 bg-yellow-100 rounded hover:bg-yellow-200 transition-colors"
-        >
-          Prioritize
-        </button>
-        <button
-          onClick={() => onAnalyze(profile)}
-          className="px-3 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-        >
-          Analyze
-        </button>
-      </div>
-    </div>
-  );
-};
-
-export const DiscoveryPipelineDashboard: React.FC = () => {
-  const profiles = useProfiles();
-  const config = useConfig();
-  const { apiService } = useApi();
-  const { showSuccess, showError } = useNotifications();
-  const { updateProfile, updateConfig } = useAppStore();
-  
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [manualUrl, setManualUrl] = useState('');
-  const [filters, setFilters] = useState<DiscoveryFilters>({
-    compatibility: 0,
-    location: '',
-    ageRange: [18, 50],
-    status: '',
-    dateRange: 'all',
-  });
-
-  const filteredProfiles = profiles.filter(profile => {
-    if (filters.compatibility > 0 && profile.compatibilityScore < filters.compatibility) return false;
-    if (filters.location && profile.location && !profile.location.toLowerCase().includes(filters.location.toLowerCase())) return false;
-    if (filters.status && profile.status !== filters.status) return false;
-    if (profile.age && (profile.age < filters.ageRange[0] || profile.age > filters.ageRange[1])) return false;
-    return true;
-  });
-
-  const handleAnalyzeProfile = async (profile: any) => {
-    try {
-      setIsAnalyzing(true);
-      const result = await apiService.analyzeProfile({
-        instagram_url: profile.instagramUrl,
-        enhanced_analysis: true,  // FIXED: Use enhanced_analysis instead of detailed_analysis
-      });
-      
-      updateProfile(profile.id, {
-        ...result,
-        status: 'analyzed',
-      });
-      
-      showSuccess('Profile Analyzed', `Successfully analyzed ${profile.name}`);
-    } catch (error) {
-      showError('Analysis Failed', `Failed to analyze ${profile.name}`);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleSkipProfile = (profile: any) => {
-    updateProfile(profile.id, { status: 'inactive' });
-    showSuccess('Profile Skipped', `${profile.name} has been skipped`);
-  };
-
-  const handlePrioritizeProfile = (profile: any) => {
-    updateProfile(profile.id, { status: 'active' });
-    showSuccess('Profile Prioritized', `${profile.name} has been prioritized`);
-  };
-
-  const handleManualAnalysis = async () => {
-    if (!manualUrl.trim()) return;
-    
-    try {
-      setIsAnalyzing(true);
-      await apiService.analyzeProfile({
-        instagram_url: manualUrl,
-        enhanced_analysis: true,  // FIXED: Use enhanced_analysis instead of detailed_analysis
-      });
-      
-      showSuccess('Manual Analysis Complete', `Successfully analyzed profile from ${manualUrl}`);
-      setManualUrl('');
-    } catch (error) {
-      showError('Manual Analysis Failed', 'Failed to analyze the provided URL');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleConfigUpdate = (key: string, value: any) => {
-    updateConfig('discoveryPipeline', { [key]: value });
-    showSuccess('Configuration Updated', `Discovery pipeline ${key} updated`);
-  };
-
-  const discoveryStats = {
-    total: profiles.length,
-    discovered: profiles.filter(p => p.status === 'discovered').length,
-    analyzed: profiles.filter(p => p.status === 'analyzed').length,
-    contacted: profiles.filter(p => p.status === 'contacted').length,
-    avgCompatibility: profiles.length > 0 
-      ? Math.round(profiles.reduce((sum, p) => sum + p.compatibilityScore, 0) / profiles.length)
-      : 0,
+  const getCompatibilityLabel = (score: number) => {
+    if (score >= 0.8) return 'Alta Compatibilidad';
+    if (score >= 0.6) return 'Compatibilidad Media';
+    return 'Baja Compatibilidad';
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Discovery Pipeline</h1>
-        <div className="flex items-center space-x-2">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            config.discoveryPipeline.enabled 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
-            {config.discoveryPipeline.enabled ? 'Active' : 'Inactive'}
-          </span>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-blue-600">{discoveryStats.total}</div>
-          <div className="text-sm text-gray-600">Total Profiles</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-purple-600">{discoveryStats.discovered}</div>
-          <div className="text-sm text-gray-600">Discovered</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-green-600">{discoveryStats.analyzed}</div>
-          <div className="text-sm text-gray-600">Analyzed</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-emerald-600">{discoveryStats.contacted}</div>
-          <div className="text-sm text-gray-600">Contacted</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="text-2xl font-bold text-yellow-600">{discoveryStats.avgCompatibility}%</div>
-          <div className="text-sm text-gray-600">Avg. Compatibility</div>
-        </div>
-      </div>
-
-      {/* Configuration Panel */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Search Configuration</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Daily Limit
-            </label>
-            <input
-              type="number"
-              value={config.discoveryPipeline.dailyLimit}
-              onChange={(e) => handleConfigUpdate('dailyLimit', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Min. Compatibility (%)
-            </label>
-            <input
-              type="number"
-              value={config.discoveryPipeline.minCompatibility}
-              onChange={(e) => handleConfigUpdate('minCompatibility', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Schedule
-            </label>
-            <input
-              type="text"
-              value={config.discoveryPipeline.schedule}
-              onChange={(e) => handleConfigUpdate('schedule', e.target.value)}
-              placeholder="0 9,15,21 * * *"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('discovery.title')}</h1>
+        <p className="text-gray-600">{t('discovery.subtitle')}</p>
       </div>
 
-      {/* Manual Discovery */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Manual Discovery</h2>
-        <div className="flex space-x-4">
-          <input
-            type="url"
-            value={manualUrl}
-            onChange={(e) => setManualUrl(e.target.value)}
-            placeholder="https://instagram.com/username"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      {/* Formulario de análisis */}
+      <SectionWithHelp title="Analizar Nuevo Perfil" helpKey="enhancedAnalysis">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="instagram-url" className="block text-sm font-medium text-gray-700 mb-1">
+              URL de Instagram
+            </label>
+            <div className="relative">
+              <input
+                id="instagram-url"
+                type="text"
+                value={instagramUrl}
+                onChange={(e) => setInstagramUrl(e.target.value)}
+                placeholder={t('discovery.form.urlPlaceholder')}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={analyzing}
+              />
+              <UserIcon className="h-5 w-5 text-gray-400 absolute right-3 top-3" />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Podés usar: https://instagram.com/usuario, instagram.com/usuario, o solo el @usuario
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="enhanced-analysis"
+              type="checkbox"
+              checked={enhancedAnalysis}
+              onChange={(e) => setEnhancedAnalysis(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              disabled={analyzing}
+            />
+            <label htmlFor="enhanced-analysis" className="text-sm text-gray-700">
+              {t('discovery.form.enhancedAnalysis')}
+            </label>
+            <HelpTooltip helpKey="enhancedAnalysis" />
+          </div>
+
           <button
-            onClick={handleManualAnalysis}
-            disabled={isAnalyzing || !manualUrl.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleAnalyzeProfile}
+            disabled={analyzing || !instagramUrl.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
-            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+            {analyzing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                Analizando...
+              </>
+            ) : (
+              <>
+                <MagnifyingGlassIcon className="h-4 w-4" />
+                {t('discovery.form.analyzeButton')}
+              </>
+            )}
           </button>
         </div>
-      </div>
+      </SectionWithHelp>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Min. Compatibility
-            </label>
-            <select
-              value={filters.compatibility}
-              onChange={(e) => setFilters({...filters, compatibility: parseInt(e.target.value)})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value={0}>All</option>
-              <option value={60}>60%+</option>
-              <option value={70}>70%+</option>
-              <option value={80}>80%+</option>
-              <option value={90}>90%+</option>
-            </select>
+      {/* Progress Steps */}
+      {analyzing && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Progreso del Análisis</h3>
+          <div className="space-y-3">
+            {[
+              { key: 'profile', label: 'Analizando perfil', icon: UserIcon },
+              { key: 'compatibility', label: 'Calculando compatibilidad', icon: HeartIcon },
+              { key: 'strategy', label: 'Generando estrategia', icon: ChartBarIcon },
+              { key: 'complete', label: 'Análisis completo', icon: CheckCircleIcon }
+            ].map(({ key, label, icon: Icon }) => {
+              const status = getStepStatus(key);
+              return (
+                <div key={key} className="flex items-center gap-3">
+                  <div className={`
+                    w-8 h-8 rounded-full flex items-center justify-center
+                    ${status === 'completed' ? 'bg-green-500' : 
+                      status === 'current' ? 'bg-blue-500' : 'bg-gray-300'}
+                  `}>
+                    {status === 'completed' ? (
+                      <CheckCircleIcon className="h-4 w-4 text-white" />
+                    ) : status === 'current' ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                    ) : (
+                      <Icon className="h-4 w-4 text-gray-600" />
+                    )}
+                  </div>
+                  <span className={`
+                    ${status === 'completed' ? 'text-green-600 font-medium' :
+                      status === 'current' ? 'text-blue-600 font-medium' : 'text-gray-500'}
+                  `}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Location
-            </label>
-            <input
-              type="text"
-              value={filters.location}
-              onChange={(e) => setFilters({...filters, location: e.target.value})}
-              placeholder="Filter by location"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status
-            </label>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All</option>
-              <option value="discovered">Discovered</option>
-              <option value="analyzed">Analyzed</option>
-              <option value="contacted">Contacted</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Age Range
-            </label>
-            <div className="flex space-x-2">
-              <input
-                type="number"
-                value={filters.ageRange[0]}
-                onChange={(e) => setFilters({...filters, ageRange: [parseInt(e.target.value), filters.ageRange[1]]})}
-                className="w-1/2 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="18"
-                max="100"
-              />
-              <input
-                type="number"
-                value={filters.ageRange[1]}
-                onChange={(e) => setFilters({...filters, ageRange: [filters.ageRange[0], parseInt(e.target.value)]})}
-                className="w-1/2 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="18"
-                max="100"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Profiles Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredProfiles.map((profile) => (
-          <ProfileCard
-            key={profile.id}
-            profile={profile}
-            onAnalyze={handleAnalyzeProfile}
-            onSkip={handleSkipProfile}
-            onPrioritize={handlePrioritizeProfile}
-          />
-        ))}
-      </div>
-
-      {filteredProfiles.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-gray-500 text-lg">No profiles found matching your filters</div>
-          <p className="text-gray-400 mt-2">Try adjusting your filters or run a new discovery</p>
         </div>
       )}
+
+      {/* Resultados del análisis */}
+      {analysisResult && (
+        <div className="space-y-6">
+          {/* Información del perfil */}
+          {analysisResult.profile && (
+            <SectionWithHelp title="Información del Perfil">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Username:</span>
+                    <p className="text-lg font-semibold">@{analysisResult.profile.username}</p>
+                  </div>
+                  {analysisResult.profile.full_name && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Nombre:</span>
+                      <p className="text-lg">{analysisResult.profile.full_name}</p>
+                    </div>
+                  )}
+                  {analysisResult.profile.bio && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-500">Bio:</span>
+                      <p className="text-gray-700">{analysisResult.profile.bio}</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <p className="text-2xl font-bold text-blue-600">{analysisResult.profile.followers_count}</p>
+                    <p className="text-sm text-gray-600">Seguidores</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <p className="text-2xl font-bold text-green-600">{analysisResult.profile.following_count}</p>
+                    <p className="text-sm text-gray-600">Siguiendo</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <p className="text-2xl font-bold text-purple-600">{analysisResult.profile.posts_count}</p>
+                    <p className="text-sm text-gray-600">Posts</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <p className="text-lg font-bold">
+                      {analysisResult.profile.is_verified ? '✅' : '❌'}
+                    </p>
+                    <p className="text-sm text-gray-600">Verificado</p>
+                  </div>
+                </div>
+              </div>
+            </SectionWithHelp>
+          )}
+
+          {/* Score de compatibilidad */}
+          {analysisResult.compatibility && (
+            <SectionWithHelp title="Análisis de Compatibilidad" helpKey="compatibilityScore">
+              <div className="space-y-6">
+                {/* Score principal */}
+                <div className="text-center">
+                  <div className={`inline-flex items-center px-6 py-3 rounded-full ${getCompatibilityColor(analysisResult.compatibility.compatibility_score)}`}>
+                    <HeartIcon className="h-6 w-6 mr-2" />
+                    <span className="text-2xl font-bold">
+                      {Math.round(analysisResult.compatibility.compatibility_score * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-lg font-medium text-gray-700 mt-2">
+                    {getCompatibilityLabel(analysisResult.compatibility.compatibility_score)}
+                  </p>
+                </div>
+
+                {/* Desglose por categorías */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Object.entries(analysisResult.compatibility.tier_breakdown).map(([key, value]) => {
+                    const labels: Record<string, string> = {
+                      core_values: 'Valores Centrales',
+                      social_patterns: 'Patrones Sociales',
+                      interests: 'Intereses',
+                      communication: 'Comunicación'
+                    };
+                    
+                    return (
+                      <div key={key} className="text-center p-4 bg-gray-50 rounded-lg">
+                        <p className="text-2xl font-bold text-gray-900">{Math.round(value * 100)}%</p>
+                        <p className="text-sm text-gray-600">{labels[key]}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Predicción de éxito */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">Predicción de Éxito</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <span className="text-sm text-blue-700">Probabilidad:</span>
+                      <p className="text-lg font-bold text-blue-900">
+                        {Math.round(analysisResult.compatibility.success_prediction.success_probability * 100)}%
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-blue-700">Confianza:</span>
+                      <p className="text-lg font-bold text-blue-900 capitalize">
+                        {analysisResult.compatibility.success_prediction.confidence_level}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-blue-700">Recomendación:</span>
+                      <p className="text-lg font-bold text-blue-900">
+                        {analysisResult.compatibility.success_prediction.recommendation.action.replace('_', ' ')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </SectionWithHelp>
+          )}
+
+          {/* Estrategia de conversación */}
+          {analysisResult.strategy && (
+            <SectionWithHelp title="Estrategia de Conversación" helpKey="responseGenerator">
+              <div className="space-y-6">
+                {/* Plan de conversación por fases */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {Object.entries(analysisResult.strategy.conversation_plan).map(([phaseKey, phase]) => (
+                    <div key={phaseKey} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">{phase.name}</h4>
+                      <p className="text-sm text-gray-600 mb-2">Duración: {phase.duration}</p>
+                      <p className="text-sm text-gray-700 mb-3">{phase.objective}</p>
+                      
+                      <div className="space-y-2">
+                        <span className="text-xs font-medium text-gray-500 uppercase">Mensajes de ejemplo:</span>
+                        {phase.sample_messages.map((message, index) => (
+                          <div key={index} className="bg-gray-50 p-2 rounded text-sm text-gray-700">
+                            "{message}"
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Timing y señales */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-900 mb-3">✅ Indicadores de Éxito</h4>
+                    <ul className="space-y-1">
+                      {analysisResult.strategy.success_indicators.map((indicator, index) => (
+                        <li key={index} className="text-sm text-green-800">• {indicator}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-red-900 mb-3">🚨 Señales de Alerta</h4>
+                    <ul className="space-y-1">
+                      {analysisResult.strategy.red_flags.map((flag, index) => (
+                        <li key={index} className="text-sm text-red-800">• {flag}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Estrategia de timing */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-yellow-900 mb-3">⏰ Estrategia de Timing</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <span className="text-sm font-medium text-yellow-800">Mensaje inicial:</span>
+                      <p className="text-sm text-yellow-700">{analysisResult.strategy.timing_strategy.initial_message}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-yellow-800">Seguimiento:</span>
+                      <p className="text-sm text-yellow-700">{analysisResult.strategy.timing_strategy.follow_up}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-yellow-800">Escalación:</span>
+                      <p className="text-sm text-yellow-700">{analysisResult.strategy.timing_strategy.escalation}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </SectionWithHelp>
+          )}
+        </div>
+      )}
+
+      {/* Tips de ayuda */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 className="font-semibold text-blue-900 mb-3">{t('discovery.tips.title')}</h3>
+        <ul className="space-y-2 text-blue-800">
+          <li>• {t('discovery.tips.publicProfile')}</li>
+          <li>• {t('discovery.tips.completeUrl')}</li>
+          <li>• {t('discovery.tips.waitAnalysis')}</li>
+          <li>• {t('discovery.tips.enhancedMode')}</li>
+        </ul>
+      </div>
     </div>
   );
 };
