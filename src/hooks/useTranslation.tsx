@@ -3,7 +3,7 @@
  * Proporciona textos en español y funciones de ayuda
  */
 import { useMemo } from 'react';
-import es, { Translations } from '../locales/es';
+import es from '../locales/es';
 
 type TranslationKey = string;
 
