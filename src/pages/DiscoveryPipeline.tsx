@@ -4,7 +4,9 @@ import {
   ChartBarIcon,
   UserIcon,
   HeartIcon,
-  CheckCircleIcon
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation, SectionWithHelp, HelpTooltip } from '../hooks/useTranslation';
 import { useApi, ProfileAnalysisRequest, ProfileAnalysisResponse, CompatibilityResponse, StrategyResponse } from '../services/api';
@@ -24,6 +26,7 @@ export const DiscoveryPipelineDashboard: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [currentStep, setCurrentStep] = useState<'idle' | 'profile' | 'compatibility' | 'strategy' | 'complete'>('idle');
+  const [showTips, setShowTips] = useState(true);
 
   const isValidInstagramUrl = (url: string): boolean => {
     const patterns = [
@@ -157,6 +160,63 @@ export const DiscoveryPipelineDashboard: React.FC = () => {
     return 'Baja Compatibilidad';
   };
 
+  // Tips inteligentes basados en el estado
+  const SmartTips = () => {
+    if (!showTips) return null;
+
+    const getTipForState = () => {
+      if (!instagramUrl) {
+        return {
+          icon: <UserIcon className="h-5 w-5 text-blue-600" />,
+          title: "💡 Consejo: Cómo empezar",
+          message: "Pegá una URL de Instagram como 'instagram.com/usuario' o simplemente el @usuario. El sistema analiza perfiles públicos solamente."
+        };
+      }
+      
+      if (analyzing) {
+        return {
+          icon: <ClockIcon className="h-5 w-5 text-yellow-600" />,
+          title: "⏳ Análisis en progreso",
+          message: "El proceso toma 30-60 segundos. Se está analizando el perfil, calculando compatibilidad y generando estrategias personalizadas."
+        };
+      }
+
+      if (analysisResult) {
+        return {
+          icon: <CheckCircleIcon className="h-5 w-5 text-green-600" />,
+          title: "✅ ¡Análisis completado!",
+          message: "Revisa el score de compatibilidad y las estrategias generadas. Podes analizar otro perfil cuando quieras."
+        };
+      }
+
+      return {
+        icon: <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600" />,
+        title: "🎯 Mejores resultados",
+        message: "Activá 'Análisis Avanzado' para obtener insights más profundos. Asegurate que el perfil sea público para mejores resultados."
+      };
+    };
+
+    const tip = getTipForState();
+
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start gap-3">
+          {tip.icon}
+          <div className="flex-1">
+            <h4 className="font-semibold text-blue-900">{tip.title}</h4>
+            <p className="text-blue-800 text-sm mt-1">{tip.message}</p>
+          </div>
+          <button
+            onClick={() => setShowTips(false)}
+            className="text-blue-600 hover:text-blue-800 text-sm"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -164,6 +224,9 @@ export const DiscoveryPipelineDashboard: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('discovery.title')}</h1>
         <p className="text-gray-600">{t('discovery.subtitle')}</p>
       </div>
+
+      {/* Smart Tips */}
+      <SmartTips />
 
       {/* Formulario de análisis */}
       <SectionWithHelp title="Analizar Nuevo Perfil" helpKey="enhancedAnalysis">
@@ -440,6 +503,23 @@ export const DiscoveryPipelineDashboard: React.FC = () => {
                       <p className="text-sm text-yellow-700">{analysisResult.strategy.timing_strategy.escalation}</p>
                     </div>
                   </div>
+                </div>
+
+                {/* Acción recomendada */}
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white">
+                  <h4 className="font-bold text-xl mb-2">🎯 Próximo Paso Recomendado</h4>
+                  <p className="text-blue-100 mb-4">
+                    Basado en el análisis, este es el mejor momento para contactar:
+                  </p>
+                  <div className="bg-white bg-opacity-20 rounded-lg p-4">
+                    <p className="font-semibold mb-2">Mensaje inicial sugerido:</p>
+                    <p className="italic">
+                      "{analysisResult.strategy.conversation_plan.initial_contact.sample_messages[0]}"
+                    </p>
+                  </div>
+                  <button className="mt-4 bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+                    📋 Copiar mensaje
+                  </button>
                 </div>
               </div>
             </SectionWithHelp>
