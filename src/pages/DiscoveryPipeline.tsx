@@ -4,9 +4,7 @@ import {
   ChartBarIcon,
   UserIcon,
   HeartIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation, SectionWithHelp, HelpTooltip } from '../hooks/useTranslation';
 import { useApi, ProfileAnalysisRequest, ProfileAnalysisResponse, CompatibilityResponse, StrategyResponse } from '../services/api';
