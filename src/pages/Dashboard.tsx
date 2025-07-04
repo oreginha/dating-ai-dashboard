@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   UserPlusIcon, 
-  ChartBarIcon, 
   ChatBubbleLeftRightIcon, 
   SparklesIcon,
   ClockIcon,
@@ -60,7 +59,7 @@ export const Dashboard: React.FC = () => {
     try {
       console.log('📊 Loading dashboard data...');
       
-      const [analyticsResponse, profilesResponse] = await Promise.all([
+      const [analyticsResponse] = await Promise.all([
         apiService.getAnalytics(),
         apiService.getProfiles()
       ]);
@@ -142,14 +141,6 @@ export const Dashboard: React.FC = () => {
     
     const diffInDays = Math.floor(diffInHours / 24);
     return t('common.daysAgo', [diffInDays.toString()]);
-  };
-
-  const getStatusColor = () => {
-    switch (systemStatus) {
-      case 'online': return 'text-green-600';
-      case 'offline': return 'text-red-600';
-      default: return 'text-yellow-600';
-    }
   };
 
   const getStatusText = () => {
