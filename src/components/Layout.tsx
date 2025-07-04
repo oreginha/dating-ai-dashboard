@@ -38,6 +38,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath = '/' }) =
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Navegación traducida al español
   const navigation: NavigationItem[] = [
@@ -127,6 +128,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath = '/' }) =
   const getCurrentPageDescription = () => {
     const currentNav = navigation.find(item => isCurrentPath(item.href));
     return currentNav?.description || 'Panel de control principal';
+  };
+
+  // Funciones para configuración
+  const handleSettingsClick = () => {
+    setShowSettings(true);
+    addNotification({
+      type: 'info',
+      title: 'Configuración',
+      message: 'Panel de configuración disponible próximamente'
+    });
   };
 
   // Componente de ayuda contextual
@@ -332,6 +343,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPath = '/' }) =
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   Sistema Online
                 </div>
+
+                {/* Configuración */}
+                <button 
+                  onClick={handleSettingsClick}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                  title="Configuración"
+                >
+                  <Cog6ToothIcon className="h-6 w-6" />
+                </button>
 
                 {/* Notificaciones */}
                 <div className="relative" ref={notificationRef}>
