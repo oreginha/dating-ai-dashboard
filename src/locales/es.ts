@@ -263,7 +263,16 @@ export const es = {
     
     opportunityDetection: "El detector de oportunidades monitorea señales sutiles en las conversaciones para identificar momentos perfectos para escalar o proponer encuentros.",
     
-    autoResponse: "El sistema de respuestas automáticas aprende de tus conversaciones exitosas para sugerir respuestas que coincidan con tu estilo y maximicen el engagement."
+    autoResponse: "El sistema de respuestas automáticas aprende de tus conversaciones exitosas para sugerir respuestas que coincidan con tu estilo y maximicen el engagement.",
+
+    // Nuevas keys para Dashboard
+    profilesAnalyzed: "Cantidad total de perfiles de Instagram analizados por el sistema. Cada análisis incluye compatibilidad, predicción de éxito y estrategias personalizadas.",
+    
+    activeConversations: "Número de conversaciones activas que están siendo monitoreadas por el sistema. Incluye detección de oportunidades y sugerencias de respuestas en tiempo real.",
+    
+    successRate: "Porcentaje de conversaciones que resultaron en encuentros o conexiones exitosas. Se calcula basado en tu historial y patrones de éxito.",
+
+    compatibilityScore: "Score de compatibilidad calculado con algoritmos avanzados que analizan múltiples factores de personalidad y afinidad."
   },
 
   // Notificaciones
