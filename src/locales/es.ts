@@ -253,7 +253,7 @@ export const es = {
 
   // Tooltips y ayuda
   help: {
-    compatibilityScore: "El score de compatibilidad se calcula usando múltiples factores: valores centrales (40%), patrones sociales (30%), intereses compartidos (20%) y estilo de comunicación (10%).",
+    compatibilityScore: "Score de compatibilidad calculado con algoritmos avanzados que analizan múltiples factores de personalidad y afinidad: valores centrales (40%), patrones sociales (30%), intereses compartidos (20%) y estilo de comunicación (10%).",
     
     successProbability: "La probabilidad de éxito predice qué tan probable es que esta persona responda positivamente a tu approach inicial.",
     
@@ -265,14 +265,12 @@ export const es = {
     
     autoResponse: "El sistema de respuestas automáticas aprende de tus conversaciones exitosas para sugerir respuestas que coincidan con tu estilo y maximicen el engagement.",
 
-    // Nuevas keys para Dashboard
+    // Dashboard metrics help text
     profilesAnalyzed: "Cantidad total de perfiles de Instagram analizados por el sistema. Cada análisis incluye compatibilidad, predicción de éxito y estrategias personalizadas.",
     
     activeConversations: "Número de conversaciones activas que están siendo monitoreadas por el sistema. Incluye detección de oportunidades y sugerencias de respuestas en tiempo real.",
     
-    successRate: "Porcentaje de conversaciones que resultaron en encuentros o conexiones exitosas. Se calcula basado en tu historial y patrones de éxito.",
-
-    compatibilityScore: "Score de compatibilidad calculado con algoritmos avanzados que analizan múltiples factores de personalidad y afinidad."
+    successRate: "Porcentaje de conversaciones que resultaron en encuentros o conexiones exitosas. Se calcula basado en tu historial y patrones de éxito."
   },
 
   // Notificaciones
