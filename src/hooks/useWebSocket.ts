@@ -24,7 +24,7 @@ export const useWebSocket = () => {
       const ws = new WebSocket(WS_URL);
       
       ws.onopen = () => {
-        console.log('WebSocket connected to:', WS_URL);
+        console.log('WebSocket connected');
         setIsConnected(true);
         store.setConnectionStatus(true);
         reconnectAttemptsRef.current = 0;
