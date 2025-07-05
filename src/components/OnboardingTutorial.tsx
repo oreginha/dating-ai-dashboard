@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   UserPlusIcon, 
-  ChartBarIcon,
   ChatBubbleLeftRightIcon, 
   SparklesIcon,
   XMarkIcon,
@@ -41,7 +40,6 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const [showWelcome, setShowWelcome] = useState(true);
 
   // Auto-mostrar tutorial para nuevos usuarios
   useEffect(() => {
