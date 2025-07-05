@@ -3,7 +3,7 @@ import { useAppStore } from '../store';
 
 // Remove ImportMeta/ImportMetaEnv declarations from here; they are now in vite-env.d.ts
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
+const WS_URL = import.meta.env.VITE_WS_URL || 'wss://mcp-api-server-production.up.railway.app/ws';
 
 export interface WebSocketMessage {
   type: string;
@@ -24,7 +24,7 @@ export const useWebSocket = () => {
       const ws = new WebSocket(WS_URL);
       
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected to:', WS_URL);
         setIsConnected(true);
         store.setConnectionStatus(true);
         reconnectAttemptsRef.current = 0;
